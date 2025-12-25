@@ -61,6 +61,16 @@ export default function Dashboard() {
         date: new Date(),
       },
     ]);
+    await supabase.from("notes").insert([
+      {
+        group_id: id,
+        title,
+        teacher,
+        subject,
+        file_url: publicData.publicUrl,
+        date: new Date(),
+      },
+    ]);
 
     // Reset form
     setTitle("");
