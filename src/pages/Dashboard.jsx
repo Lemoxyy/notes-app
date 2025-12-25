@@ -1,89 +1,81 @@
-import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
-import { supabase } from "../lib/supabase";
+import { useState, useEffect } from "react";
+import { supabase } from "../lib/supabase"; // your supabase client
 
-export default function Dashboard() {
-  const { id } = useParams(); // group id from URL
+export default function Dashboard({ groupId }) {
   const [notes, setNotes] = useState([]);
   const [title, setTitle] = useState("");
   const [teacher, setTeacher] = useState("");
   const [subject, setSubject] = useState("");
   const [file, setFile] = useState(null);
 
-  // Fetch all notes for this group
+  // Fetch notes for this group
   async function fetchNotes() {
     const { data, error } = await supabase
       .from("notes")
       .select("*")
-      .eq("group_id", id)
+      .eq("group_id", groupId)
       .order("created_at", { ascending: false });
 
-    if (error) {
-      alert(error.message);
-    } else {
-      setNotes(data || []);
-    }
+    if (error) return alert(error.message);
+    setNotes(data || []);
   }
 
   useEffect(() => {
     fetchNotes();
   }, []);
 
-  // Upload a note/file
+  // Upload file and insert metadata
   async function uploadNote() {
-    if (!file || !title || !teacher || !subject) {
-      return alert("Fill all fields and select a file");
+    if (!file || !title || !teacher || !subject)
+      return alert("Please fill all fields and select a file");
+
+    try {
+      // Generate a unique file path
+      const filePath = `${Date.now()}-${file.name}`;
+
+      // Upload file to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from("notes") // storage bucket name
+        .upload(filePath, file);
+
+      if (uploadError) return alert(uploadError.message);
+
+      // Get public URL of the uploaded file
+      const { data: publicData } = supabase.storage
+        .from("notes")
+        .getPublicUrl(filePath);
+
+      // Insert metadata into notes table
+      const { error: insertError } = await supabase.from("notes").insert([
+        {
+          group_id: groupId, // must match a valid group
+          title,
+          teacher,
+          subject,
+          file_url: publicData.publicUrl,
+          date: new Date(),
+        },
+      ]);
+
+      if (insertError) return alert(insertError.message);
+
+      // Reset form
+      setTitle("");
+      setTeacher("");
+      setSubject("");
+      setFile(null);
+
+      // Refresh notes
+      fetchNotes();
+      alert("Note uploaded successfully!");
+    } catch (err) {
+      console.error(err);
+      alert("Something went wrong while uploading note.");
     }
-
-    // Generate a unique file path
-    const filePath = `${Date.now()}-${file.name}`;
-
-    // Upload file to Supabase Storage
-    const { error: uploadError } = await supabase.storage
-      .from("notes")
-      .upload(filePath, file);
-
-    if (uploadError) return alert(uploadError.message);
-
-    // Get public URL of the uploaded file
-    const { data: publicData } = supabase.storage
-      .from("notes")
-      .getPublicUrl(filePath);
-
-    // Insert metadata into notes table
-    await supabase.from("notes").insert([
-      {
-        group_id: id,
-        title,
-        teacher,
-        subject,
-        file_url: publicData.publicUrl,
-        date: new Date(),
-      },
-    ]);
-    await supabase.from("notes").insert([
-      {
-        group_id: id,
-        title,
-        teacher,
-        subject,
-        file_url: publicData.publicUrl,
-        date: new Date(),
-      },
-    ]);
-
-    // Reset form
-    setTitle("");
-    setTeacher("");
-    setSubject("");
-    setFile(null);
-
-    // Refresh notes list
-    fetchNotes();
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white p-6">
+    <div className="min-h-screen p-6 bg-zinc-950 text-white">
       <h1 className="text-2xl font-bold mb-4">Group Dashboard</h1>
 
       {/* Upload Form */}
@@ -116,16 +108,16 @@ export default function Dashboard() {
         </button>
       </div>
 
-      {/* List of Uploaded Notes */}
+      {/* List of Notes */}
       <div className="grid md:grid-cols-3 gap-4">
         {notes.length === 0 && <p>No notes uploaded yet.</p>}
-        {notes.map((n) => (
-          <div key={n.id} className="bg-zinc-900 p-4 rounded-xl">
-            <h3 className="font-bold">{n.title}</h3>
-            <p className="text-sm text-zinc-400">{n.teacher}</p>
-            <p className="text-sm text-zinc-500">{n.subject}</p>
+        {notes.map((note) => (
+          <div key={note.id} className="bg-zinc-900 p-4 rounded-xl">
+            <h3 className="font-bold">{note.title}</h3>
+            <p className="text-sm text-zinc-400">{note.teacher}</p>
+            <p className="text-sm text-zinc-500">{note.subject}</p>
             <a
-              href={n.file_url}
+              href={note.file_url}
               target="_blank"
               className="inline-block mt-2 text-blue-400 underline"
             >
