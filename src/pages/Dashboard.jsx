@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
-import { supabase } from "../lib/supabase"; // your supabase client
+import { useParams } from "react-router-dom"; // for URL params
+import { supabase } from "../lib/supabase"; // your Supabase client
 
-export default function Dashboard({ groupId }) {
+export default function Dashboard() {
+  const { id: groupId } = useParams(); // get group UUID from URL
   const [notes, setNotes] = useState([]);
   const [title, setTitle] = useState("");
   const [teacher, setTeacher] = useState("");
@@ -10,6 +12,8 @@ export default function Dashboard({ groupId }) {
 
   // Fetch notes for this group
   async function fetchNotes() {
+    if (!groupId) return;
+
     const { data, error } = await supabase
       .from("notes")
       .select("*")
@@ -22,37 +26,39 @@ export default function Dashboard({ groupId }) {
 
   useEffect(() => {
     fetchNotes();
-  }, []);
+  }, [groupId]);
 
-  // Upload file and insert metadata
+  // Upload file and insert note
   async function uploadNote() {
+    if (!groupId) return alert("Invalid group ID");
     if (!file || !title || !teacher || !subject)
       return alert("Please fill all fields and select a file");
 
     try {
-      // Generate a unique file path
+      // Unique file path
       const filePath = `${Date.now()}-${file.name}`;
 
       // Upload file to Supabase Storage
       const { error: uploadError } = await supabase.storage
-        .from("notes") // storage bucket name
+        .from("notes") // your storage bucket name
         .upload(filePath, file);
 
       if (uploadError) return alert(uploadError.message);
 
-      // Get public URL of the uploaded file
+      // Get public URL
       const { data: publicData } = supabase.storage
         .from("notes")
         .getPublicUrl(filePath);
 
-      // Insert metadata into notes table
+      // Insert note into database
       const { error: insertError } = await supabase.from("notes").insert([
         {
-          group_id: groupId, // must match a valid group
+          group_id: groupId,
           title,
           teacher,
           subject,
           file_url: publicData.publicUrl,
+          file_name: file.name, // original file name
           date: new Date(),
         },
       ]);
@@ -116,6 +122,7 @@ export default function Dashboard({ groupId }) {
             <h3 className="font-bold">{note.title}</h3>
             <p className="text-sm text-zinc-400">{note.teacher}</p>
             <p className="text-sm text-zinc-500">{note.subject}</p>
+            <p className="text-sm text-zinc-300">File: {note.file_name}</p>
             <a
               href={note.file_url}
               target="_blank"
