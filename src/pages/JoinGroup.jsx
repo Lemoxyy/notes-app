@@ -3,24 +3,27 @@ import { supabase } from "../lib/supabase";
 import { useNavigate } from "react-router-dom";
 
 export default function JoinGroup() {
-  const [groupId, setGroupId] = useState("");
+  const [groupName, setGroupName] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
 
   async function joinGroup() {
+    if (!groupName || !password) return alert("Fill all fields");
+
+    // Search for group by name
     const { data, error } = await supabase
       .from("groups")
       .select("*")
-      .eq("id", groupId)
+      .eq("name", groupName)
       .single();
 
     if (error || !data) return alert("Group not found");
 
-    if (data.password !== password) {
-      return alert("Wrong password");
-    }
+    // Check password
+    if (data.password !== password) return alert("Wrong password");
 
-    navigate(`/group/${groupId}`);
+    alert(`Joined group: ${data.name}`);
+    navigate(`/group/${data.id}`);
   }
 
   return (
@@ -30,18 +33,23 @@ export default function JoinGroup() {
 
         <input
           className="w-full p-2 bg-zinc-800 rounded"
-          placeholder="Group ID"
-          onChange={(e) => setGroupId(e.target.value)}
+          placeholder="Group Name"
+          value={groupName}
+          onChange={(e) => setGroupName(e.target.value)}
         />
 
         <input
           type="password"
           className="w-full p-2 bg-zinc-800 rounded"
           placeholder="Password"
+          value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
 
-        <button onClick={joinGroup} className="w-full bg-blue-600 py-2 rounded">
+        <button
+          onClick={joinGroup}
+          className="w-full bg-blue-600 py-2 rounded hover:bg-blue-700"
+        >
           Join
         </button>
       </div>

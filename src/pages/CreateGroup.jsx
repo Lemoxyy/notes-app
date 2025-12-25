@@ -10,6 +10,16 @@ export default function CreateGroup() {
   async function createGroup() {
     if (!name || !password) return alert("Fill all fields");
 
+    // Check if group name already exists
+    const { data: existingGroup } = await supabase
+      .from("groups")
+      .select("*")
+      .eq("name", name)
+      .single();
+
+    if (existingGroup) return alert("Group name already exists!");
+
+    // Insert new group
     const { data, error } = await supabase
       .from("groups")
       .insert([{ name, password }])
@@ -18,6 +28,7 @@ export default function CreateGroup() {
 
     if (error) return alert(error.message);
 
+    alert(`Group created successfully!`);
     navigate(`/group/${data.id}`);
   }
 
@@ -29,6 +40,7 @@ export default function CreateGroup() {
         <input
           className="w-full p-2 bg-zinc-800 rounded"
           placeholder="Group Name"
+          value={name}
           onChange={(e) => setName(e.target.value)}
         />
 
@@ -36,6 +48,7 @@ export default function CreateGroup() {
           type="password"
           className="w-full p-2 bg-zinc-800 rounded"
           placeholder="Password"
+          value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
 
