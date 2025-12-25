@@ -11,25 +11,26 @@ export default function CreateGroup() {
     if (!name || !password) return alert("Fill all fields");
 
     // Check if group name already exists
-    const { data: existingGroup } = await supabase
+    const { data: existingGroup, error: checkError } = await supabase
       .from("groups")
       .select("*")
       .eq("name", name)
       .single();
 
+    if (checkError && checkError.code !== "PGRST116")
+      return alert(checkError.message);
     if (existingGroup) return alert("Group name already exists!");
 
     // Insert new group
     const { data, error } = await supabase
       .from("groups")
       .insert([{ name, password }])
-      .select()
-      .single();
+      .select(); // returns an array
 
     if (error) return alert(error.message);
 
-    alert(`Group created successfully!`);
-    navigate(`/group/${data.id}`);
+    alert("Group created successfully!");
+    navigate(`/group/${data[0].id}`); // use first element
   }
 
   return (
